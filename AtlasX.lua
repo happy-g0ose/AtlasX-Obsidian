@@ -49289,7 +49289,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				
 				opts.range = nil
 
-				if autofarm.farmblooms then
+				if opts.blooms and autofarm.farmblooms then
 				for k in pairs(tracked.blooms) do
 					Stem = k:FindFirstChild("Stem")
 
@@ -50742,7 +50742,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 						
 						opts.range = nil
 
-						if autofarm.farmblooms then
+						if opts.blooms and autofarm.farmblooms then
 						for k in pairs(tracked.blooms) do
 							Stem = k:FindFirstChild("Stem")
 
@@ -52203,7 +52203,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			
 			opts.range = nil
 
-			if autofarm.farmblooms then
+			if opts.blooms and autofarm.farmblooms then
 			for k in pairs(tracked.blooms) do
 				Stem = k:FindFirstChild("Stem")
 
