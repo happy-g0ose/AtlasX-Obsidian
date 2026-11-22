@@ -241,68 +241,87 @@ do
 	end
 end
 
+-- [custom ui] artwork is hosted in the GitHub repo (no expiring Discord CDN links)
+local ATLASX_ASSETS = "https://raw.githubusercontent.com/happy-g0ose/AtlasX-Obsidian/main/"
+local ATLASX_BG_URL = ATLASX_ASSETS .. "background.png"
+local ATLASX_TOGGLE_URL = ATLASX_ASSETS .. "toggle.png"
+_G.ATLASX_BG_URL = ATLASX_BG_URL
+_G.ATLASX_TOGGLE_URL = ATLASX_TOGGLE_URL
+
 -- [custom ui] resolve image URL -> local asset via getcustomasset
-_G.resolveImage = function(url)
+_G.resolveImage = function(url, baseName)
+	baseName = baseName or "atlas_bg"
 	if not url or url == "" then
 		return nil
 	end
 	if string.find(url, "^rbxasset") then
 		return url
 	end
+	-- silently replace old expiring Discord links with our GitHub copy
+	if string.find(url, "cdn.discordapp.com", 1, true) then
+		url = (baseName == "AX_chrome_skin") and ATLASX_TOGGLE_URL or ATLASX_BG_URL
+	end
 	local gc = getcustomasset or (syn and syn.getcustomasset)
 	if not gc then
 		return nil
 	end
 	-- use cached copy only when it was downloaded from this same link
+	local urlFile = baseName .. "_url.txt"
 	local cachedUrl = nil
 	pcall(function()
-		if isfile("atlas_bg_url.txt") then
-			cachedUrl = readfile("atlas_bg_url.txt")
+		if isfile(urlFile) then
+			cachedUrl = readfile(urlFile)
 		end
 	end)
-	local okc, cached = pcall(function()
-		if cachedUrl == url and isfile("atlas_bg.png") then
-			return gc("atlas_bg.png")
+	if cachedUrl == url and isfile(baseName .. ".png") then
+		local okc, cached = pcall(gc, baseName .. ".png")
+		if okc and cached then
+			return cached
 		end
-	end)
-	if okc and cached then
-		return cached
 	end
-	local req = request or httprequest or (syn and syn.request)
+	local req = (EX and EX.Request) or request or http_request or httprequest or (syn and syn.request)
 	if not req then
 		return nil
 	end
 	local ok, asset = pcall(function()
 		local res = req({ Url = url, Method = "GET" })
-		if not res or not res.Body or res.StatusCode ~= 200 or res.Body == "" then
+		if type(res) ~= "table" then
+			return nil
+		end
+		local body = res.Body or res.body
+		if type(body) ~= "string" or body == "" then
+			return nil
+		end
+		local status = res.StatusCode or res.status_code or res.status
+		if status and status ~= 200 then
 			return nil
 		end
 		-- getcustomasset only serves files from the workspace ROOT (not subfolders)
-		local name = "atlas_bg.png"
-		local head = string.sub(res.Body, 1, 4)
+		local name = baseName .. ".png"
+		local head = string.sub(body, 1, 4)
 		if string.sub(head, 1, 3) == "\255\216\255" then
-			name = "atlas_bg.jpg"
+			name = baseName .. ".jpg"
 		elseif string.sub(head, 1, 4) == "GIF8" then
-			name = "atlas_bg.gif"
+			name = baseName .. ".gif"
 		elseif string.sub(head, 1, 4) == "RIFF" then
-			name = "atlas_bg.webp"
+			name = baseName .. ".webp"
 		end
-		writefile(name, res.Body)
-		if name == "atlas_bg.png" then
-			pcall(function() writefile("atlas_bg_url.txt", url) end)
+		writefile(name, body)
+		if name == baseName .. ".png" then
+			pcall(function() writefile(urlFile, url) end)
 		end
 		return gc(name)
 	end)
 	if ok and asset then
 		return asset
 	end
-	-- last resort: previous cached file, if it appeared meanwhile
+	-- last resort: previously cached file in the workspace root
 	local okf, fallback = pcall(function()
-		if isfile("atlas_bg.png") then
-			return gc("atlas_bg.png")
+		if isfile(baseName .. ".png") then
+			return gc(baseName .. ".png")
 		end
 	end)
-	if okf then
+	if okf and fallback then
 		return fallback
 	end
 	return nil
@@ -330,7 +349,8 @@ do
 	end)
 	if okc and type(data) == "table" then
 		if data.background and data.background ~= "" then
-			_G.background = _G.resolveImage(data.background)
+			local bg = string.find(data.background, "cdn.discordapp.com", 1, true) and ATLASX_BG_URL or data.background
+			_G.background = _G.resolveImage(bg)
 		end
 		if data.color and data.color ~= "" then
 			local r, g, b = string.match(data.color, "(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
@@ -474,7 +494,7 @@ end
 
 local cfg = {
 	custom = {
-		background = "https://cdn.discordapp.com/attachments/1563965380945379539/1570713913476255754/99f4760.png?ex=6af8c193&is=6af77013&hm=4fa221343d243e5241e2a7144cbaf352efb606ed482e1c0ecf34418d646c4358&",
+		background = ATLASX_BG_URL,
 		color = "41, 74, 122",
 		title = "AtlasX v1.1",
 		mobiletoggleicon = "AtlasX",
@@ -3464,7 +3484,11 @@ do
 			local useAtlasX = style ~= "Default"
 			if useAtlasX then
 				local okIcon = pcall(function()
-					if getcustomasset and isfile and isfile("AX_chrome_skin.png") then
+					-- try the GitHub-hosted icon first, then the old local copy
+					local img = _G.resolveImage and _G.resolveImage(ATLASX_TOGGLE_URL, "AX_chrome_skin")
+					if img then
+						ImageLabel4.Image = img
+					elseif getcustomasset and isfile and isfile("AX_chrome_skin.png") then
 						ImageLabel4.Image = getcustomasset("AX_chrome_skin.png")
 					else
 						ImageLabel4.Image = ""
