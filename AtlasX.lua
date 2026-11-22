@@ -1092,6 +1092,11 @@ local cfg = {
 	},
 }
 
+-- [custom ui] migrate old expiring Discord CDN links to the GitHub-hosted copy
+if string.find(cfg.custom.background, "cdn.discordapp.com", 1, true) then
+	cfg.custom.background = ATLASX_BG_URL
+end
+
 local cache = {}
 
 local state = {
