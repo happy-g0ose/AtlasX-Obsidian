@@ -47386,6 +47386,19 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			},
 		}
 
+		-- [priority] precise stamps/marks, fire refresh and scorching star must win
+		-- over petals and blooms: the bot should not wander off a mark/stamp it is
+		-- already collecting just because a petal spawned nearby.
+		local function highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise)
+			if bestPrecise then return true end
+			if autofarm.farmfires and type(tracked.flames) == "table" and next(tracked.flames) then
+				local flameScale = buffs.Flame and buffs.Flame.Size.Y.Scale or 0
+				if flameScale < 0.85 then return true end
+			end
+			if autofarm.autoscorchingstar and buffs["Scorching Star Aura"] then return true end
+			return false
+		end
+
 		local buffNames = {
 			["rbxassetid://1629649299"] = "Focus",
 			["rbxassetid://1472256444"] = "Baby Love",
@@ -48750,7 +48763,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 					end
 				end
 
-				if not (not bestPrecise or not (bestPrecise.name == "Precise" or not not (preciseCount > 2))) then
+				if bestPrecise then
 					return bestPrecise.name, bestPrecise.v
 				end
 
@@ -48787,7 +48800,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				end
 
 
-				if (autofarm.farmpetals or opts.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
+				if not highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise) and (autofarm.farmpetals or opts.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
 					-- [petals] the petals get their own target: bestTarget is shared with
 					-- leaves and duped tokens, so it could hand a leaf to the petal
 					-- collector and the bot stopped picking petals up completely.
@@ -49289,7 +49302,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				
 				opts.range = nil
 
-				if opts.blooms and autofarm.farmblooms then
+				if opts.blooms and autofarm.farmblooms and not highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise) then
 				for k in pairs(tracked.blooms) do
 					Stem = k:FindFirstChild("Stem")
 
@@ -50203,7 +50216,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 							end
 						end
 
-						if not (not bestPrecise or not (bestPrecise.name == "Precise" or not not (preciseCount > 2))) then
+						if bestPrecise then
 							return bestPrecise.name, bestPrecise.v
 						end
 
@@ -50240,7 +50253,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 						end
 
 
-						if (autofarm.farmpetals or opts.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
+						if not highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise) and (autofarm.farmpetals or opts.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
 							-- [petals] the petals get their own target: bestTarget is shared with
 							-- leaves and duped tokens, so it could hand a leaf to the petal
 							-- collector and the bot stopped picking petals up completely.
@@ -50742,7 +50755,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 						
 						opts.range = nil
 
-						if opts.blooms and autofarm.farmblooms then
+						if opts.blooms and autofarm.farmblooms and not highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise) then
 						for k in pairs(tracked.blooms) do
 							Stem = k:FindFirstChild("Stem")
 
@@ -51673,7 +51686,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 				end
 			end
 
-			if not (not bestPrecise or not (bestPrecise.name == "Precise" or not not (preciseCount > 2))) then
+			if bestPrecise then
 				return bestPrecise.name, bestPrecise.v
 			end
 
@@ -51706,7 +51719,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			end
 
 
-			if (autofarm.farmpetals or opts.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
+			if not highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise) and (autofarm.farmpetals or opts.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
 				-- [petals] the petals get their own target: bestTarget is shared with
 				-- leaves and duped tokens, so it could hand a leaf to the petal
 				-- collector and the bot stopped picking petals up completely.
@@ -52203,7 +52216,7 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			
 			opts.range = nil
 
-			if opts.blooms and autofarm.farmblooms then
+			if opts.blooms and autofarm.farmblooms and not highPriorityTargetActive(autofarm, buffs, tracked, bestPrecise) then
 			for k in pairs(tracked.blooms) do
 				Stem = k:FindFirstChild("Stem")
 
