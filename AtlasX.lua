@@ -68257,10 +68257,11 @@ which bees and get all 3 targets if
 			end, "toys", "autoblender_loopqueue")
 
 			-- ===== Queue / Plan UI =====
-			-- [fix] own block: the enclosing UI function hit Luau's 200 local register
-			-- limit (LOAD_FAIL at "configName"), and a nested block releases every local
-			-- declared here before the rest of the Toys tab is built.
-			do
+			-- [fix] own FUNCTION: the enclosing UI function hits Luau's 200 local register
+			-- limit (now at "setEditMode"). A nested do-block only frees registers when
+			-- the scope ENDS; a separate function gives the queue UI its own register
+			-- frame, so all of its ~100 locals no longer count against the Toys tab.
+			local function __atlasBuildQueueUI()
 			BlenderFolder.AddLabel("- Queue Plan -")
 
 			local planInfoLabel = BlenderFolder.AddLabel("Plan: queue empty (single recipe mode)")
@@ -68704,6 +68705,8 @@ which bees and get all 3 targets if
 			updateBlenderIngredients()
 			updateQueueDynamic()
 			end
+
+			__atlasBuildQueueUI()
 
 			end
 
