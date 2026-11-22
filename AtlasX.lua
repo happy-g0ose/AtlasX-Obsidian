@@ -53581,6 +53581,16 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 		end
 
 		collectTarget = function(options)
+			-- [shower lock] while Teleport To Showers is flying to / collecting a
+			-- shower, no other target may distract the bot. The watcher thread sets
+			-- this flag and clears it as soon as the shower is picked up.
+			if _G.ATLASX_SHOWER_LOCK and os.clock() - (_G.ATLASX_SHOWER_LOCK.at or 0) < 8 then
+				return true
+			end
+			if _G.ATLASX_SHOWER_LOCK then
+				_G.ATLASX_SHOWER_LOCK = nil
+			end
+
 			-- [petals] normal petals are collected early, but only when there is no
 			-- higher-priority target (precise mark/stamp, fire refresh, scorching star).
 			-- Maxed-out colours (100 in the hive) are maintenance only and never outrank
@@ -53661,7 +53671,12 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			end
 
 			if targetKind == "Shower" then
-				return collectObject(targetObject, "showers", 5, true, nil, cfg.detected.fastshowertween)
+				if cfg.detected.fastshowertween then
+					_G.ATLASX_SHOWER_LOCK = { at = os.clock() }
+				end
+				local showerResult = collectObject(targetObject, "showers", 5, true, nil, cfg.detected.fastshowertween)
+				_G.ATLASX_SHOWER_LOCK = nil
+				return showerResult
 			end
 
 			if targetKind == "Combo Coconut" then
@@ -65909,7 +65924,9 @@ do
 						farmStep(options)
 					end
 				else
-					walkPattern()
+					if not _G.ATLASX_SHOWER_LOCK then
+						walkPattern()
+					end
 				end
 			else
 				local v136 = { [tracked.mondo.HumanoidRootPart.Position] = 40 }
@@ -66277,6 +66294,15 @@ do
 
 	autofarmLoop = function()
 		while RunService.Heartbeat:Wait() do
+			-- [shower lock] Teleport To Showers is teleporting / collecting a shower
+			-- in its own thread: freeze every farm routine until it finishes.
+			if _G.ATLASX_SHOWER_LOCK and os.clock() - (_G.ATLASX_SHOWER_LOCK.at or 0) < 8 then
+				continue
+			end
+			if _G.ATLASX_SHOWER_LOCK then
+				_G.ATLASX_SHOWER_LOCK = nil
+			end
+
 			if not state.stop and not state.fasttween then
 				if getHumanoid().Health == 0 then
 					localPlayer.CharacterAdded:Wait()
@@ -70991,8 +71017,10 @@ Are you sure you want to enable it?]])
 										end
 
 										if nearest then
+											_G.ATLASX_SHOWER_LOCK = { at = os.clock() }
 											flying = true
 											flyTo(nearest.v, "showers")
+											_G.ATLASX_SHOWER_LOCK = nil
 										end
 									end
 
