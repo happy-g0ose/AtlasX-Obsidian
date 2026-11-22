@@ -47399,6 +47399,17 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			return false
 		end
 
+		-- same check for collectTarget(), which runs before pickTarget() and therefore
+		-- has no bestPrecise yet: use the tracked precise mark/stamp tables instead.
+		local function highPriorityWithoutPrecise(autofarm, buffs, tracked)
+			if (autofarm.farmprecise or autofarm.farmprecisemark)
+				and ((type(tracked.precise) == "table" and next(tracked.precise))
+					or (type(tracked.precise2) == "table" and next(tracked.precise2))) then
+				return true
+			end
+			return highPriorityTargetActive(autofarm, buffs, tracked, nil)
+		end
+
 		local buffNames = {
 			["rbxassetid://1629649299"] = "Focus",
 			["rbxassetid://1472256444"] = "Baby Love",
@@ -53570,13 +53581,13 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 		end
 
 		collectTarget = function(options)
-			-- [petals] normal petals have the highest priority: a petal lies on the ground
-			-- until somebody picks it up, so it is taken before the bot goes for a token
-			-- or anything else. Maxed-out colours (100 in the hive) are maintenance only
-			-- and never outrank tokens - see below.
+			-- [petals] normal petals are collected early, but only when there is no
+			-- higher-priority target (precise mark/stamp, fire refresh, scorching star).
+			-- Maxed-out colours (100 in the hive) are maintenance only and never outrank
+			-- tokens - see below.
 			local maintainPetal = nil
 
-			if (cfg.autofarm.farmpetals or options.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
+			if not highPriorityWithoutPrecise(cfg.autofarm, buffs, tracked) and (cfg.autofarm.farmpetals or options.petals) and not (_G.petalCooldown and os.clock() < _G.petalCooldown) then
 				local closestPetal = nil
 				local closestPetalDistance = nil
 				local closestMaintainPetal = nil
