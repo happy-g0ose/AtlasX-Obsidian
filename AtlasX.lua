@@ -53663,6 +53663,12 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			if _G.ATLASX_SHOWER_LOCK then
 				_G.ATLASX_SHOWER_LOCK = nil
 			end
+			if _G.ATLASX_THORN_LOCK and os.clock() - (_G.ATLASX_THORN_LOCK.at or 0) < 8 then
+				return true
+			end
+			if _G.ATLASX_THORN_LOCK then
+				_G.ATLASX_THORN_LOCK = nil
+			end
 
 			-- [petals] normal petals are collected early, but only when there is no
 			-- higher-priority target (precise mark/stamp, fire refresh, scorching star).
@@ -65997,7 +66003,7 @@ do
 						farmStep(options)
 					end
 				else
-					if not _G.ATLASX_SHOWER_LOCK then
+					if not _G.ATLASX_SHOWER_LOCK and not _G.ATLASX_THORN_LOCK then
 						walkPattern()
 					end
 				end
@@ -66374,6 +66380,12 @@ do
 			end
 			if _G.ATLASX_SHOWER_LOCK then
 				_G.ATLASX_SHOWER_LOCK = nil
+			end
+			if _G.ATLASX_THORN_LOCK and os.clock() - (_G.ATLASX_THORN_LOCK.at or 0) < 8 then
+				continue
+			end
+			if _G.ATLASX_THORN_LOCK then
+				_G.ATLASX_THORN_LOCK = nil
 			end
 
 			if not state.stop and not state.fasttween then
@@ -71023,6 +71035,58 @@ Are you sure you want to enable it?]])
 					end
 
 					tracked[trackedCategory][target] = nil
+				end
+
+				-- [vicious spike] Vicious Bee's Impale thorn (WaitingThorn in
+				-- workspace.Particles.WTs) appears after the script has loaded.
+				-- Watch the folder spawning and jump to the spike immediately,
+				-- instead of waiting for the regular Vicious combat routine.
+				local lastThorn = nil
+				local thornLockAt = 0
+				local function rushThorn(thorn)
+					if not thorn or not thorn.Parent or thorn == lastThorn then
+						return
+					end
+					if not cfg.combat.killvicious or state.stop then
+						return
+					end
+					if _G.ATLASX_SHOWER_LOCK or os.clock() - thornLockAt < 1 then
+						return
+					end
+					lastThorn = thorn
+					thornLockAt = os.clock()
+					_G.ATLASX_THORN_LOCK = { at = os.clock() }
+					task.spawn(function()
+						pcall(teleportTo, thorn.Position)
+						task.wait(0.8)
+						_G.ATLASX_THORN_LOCK = nil
+					end)
+				end
+				local function attachThornFolder(wt)
+					if not wt or wt.Name ~= "WTs" then
+						return
+					end
+					for _, child in ipairs(wt:GetChildren()) do
+						if child.Name == "WaitingThorn" then
+							rushThorn(child)
+						end
+					end
+					connections:Add("thornchild", wt.ChildAdded:Connect(function(child)
+						if child.Name == "WaitingThorn" then
+							rushThorn(child)
+						end
+					end))
+				end
+				if workspace.Particles then
+					local wt = workspace.Particles:FindFirstChild("WTs")
+					if wt then
+						attachThornFolder(wt)
+					end
+					connections:Add("thornroot", workspace.Particles.ChildAdded:Connect(function(child)
+						if child.Name == "WTs" then
+							attachThornFolder(child)
+						end
+					end))
 				end
 
 				detectedFolder.AddSwitch("Run without autofarm", function(enabled)
