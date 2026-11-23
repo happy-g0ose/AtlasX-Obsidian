@@ -41901,6 +41901,11 @@ do
 
 						if imageField then
 							buffs.Fields[imageField] = { Text = child.BG.Text, Percent = child.BG.Bar }
+							-- [booster] switch to the boosted field immediately when Auto Boosters is on,
+							-- instead of waiting for the v134 gate (which also requires Allowed Boosters).
+							if cfg.boosters.enabled2 and not (cfg.boosters.fieldsblacklist and cfg.boosters.fieldsblacklist[imageField]) and (imageField ~= "Coconut Field" or mobCooldown(monsterSpawners.CoconutCrab)) then
+								setField(imageField)
+							end
 						end
 					end
 				end
@@ -65849,7 +65854,7 @@ do
 						end
 					end
 
-					if not ((not toys.enabled or not cfg.boosters.enabled2 or not cfg.boosters.allowed) and not toys.farmwinds) then
+					if not ((not toys.enabled or not cfg.boosters.enabled2) and not toys.farmwinds) then
 						pickBoostedField()
 					end
 				end
