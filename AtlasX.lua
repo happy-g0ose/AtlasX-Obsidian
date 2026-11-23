@@ -65002,6 +65002,37 @@ do
 			local ipairs_2 = ipairs
 			local route2 = cfg.toys.route or progression.default
 
+			-- [beesmas26] do not hardcode Xmas25 / Xmas2025. Learn the event year
+			-- from the game's own flags (e.g. "OnettXmas2026") and fall back to the
+			-- current calendar year if nothing has been delivered yet.
+			local xmasEventYear = tonumber(os.date("%Y")) or 2026
+			do
+				local detected = 0
+				for _, list in ipairs({ playerData.Quests.Completed or {}, playerData.Flags or {} }) do
+					for _, entry in ipairs(list) do
+						local y = tonumber(tostring(entry):match("Xmas(%d+)"))
+						if y then
+							if y < 100 then y = 2000 + y end
+							if y > detected then detected = y end
+						end
+					end
+				end
+				if detected > 0 then xmasEventYear = detected end
+			end
+
+			local function isXmasEntryFor(entry, bearLabel)
+				if type(entry) ~= "string" then return false end
+				local name, yearText = entry:match("^(.-)Xmas(%d*)$")
+				if not name then return false end
+				if yearText ~= "" then
+					local y = tonumber(yearText)
+					if not y then return false end
+					if y < 100 then y = 2000 + y end
+					if y ~= xmasEventYear then return false end
+				end
+				return name == bearLabel or name:gsub("%s", "") == bearLabel:gsub("%s", "")
+			end
+
 			for _, routeItem in ipairs_2(route2) do
 				if not (routeItem.Type ~= "Present" or not (playerData.Eggs.Present > 0)) then
 					local ipairs_3 = ipairs
@@ -65013,7 +65044,7 @@ do
 
 							if label == "Robo Bear" or label == "Bucko Bee" or label == "Riley Bee" then
 								for _, completedQuest in ipairs(playerData.Quests.Completed) do
-									if string.gsub(label, " ", "") .. "Xmas25" == completedQuest then
+									if isXmasEntryFor(completedQuest, label) then
 										alreadyDelivered = nil
 										break
 									end
@@ -65024,7 +65055,7 @@ do
 
 							if not alreadyDelivered then
 								for _, playerFlag in ipairs(playerData.Flags) do
-									if label .. "Xmas2025" == playerFlag then
+									if isXmasEntryFor(playerFlag, label) then
 										alreadyDelivered = true
 										break
 									end
