@@ -7196,37 +7196,110 @@ do
 	end
 
 	watchDupedTokens = function(enable)
-		if not enable or connections:Get("dupedtokens") then
-			if not enable and not cfg.autoquest.dupedtokens and not cfg.autofarm.farmdupedtokens then
-				connections:Cancel("dupedtokens")
-				connections:Cancel("dupedtokens2")
-			end
-		else
-			local DupedTokens = workspace.Camera:FindFirstChild("DupedTokens")
-			if not DupedTokens then
+		-- [smileys] Digital Bee creates workspace.Camera.DupedTokens on the FIRST
+		-- ability use, often long after the UI was built. The old watcher did a
+		-- one-time FindFirstChild and bailed out, so tracked.dupedsmiley stayed
+		-- empty forever and the bot never even saw a smiley. Watch the parent for
+		-- a late-created folder, re-attach if it is destroyed and recreated, and
+		-- match the texture by numeric id (rbxassetid:// and the old http form).
+		local want = enable or cfg.autoquest.dupedtokens or cfg.autofarm.farmdupedtokens
+
+		if not want then
+			connections:Cancel("dupedtokens")
+			connections:Cancel("dupedtokens2")
+			connections:Cancel("dupedtokensroot")
+			connections:Cancel("dupedtokensroot2")
+			return
+		end
+
+		local bearIds = {
+			[1472425802] = true,
+			[1472580249] = true,
+			[1472532912] = true,
+			[2032949183] = true,
+			[1472491940] = true,
+			[1489734171] = true,
+			[1837410537] = true,
+		}
+
+		local classify = function(child)
+			if not child then
 				return
 			end
 
-			connections:Add("dupedtokens", DupedTokens.ChildAdded:Connect(function(child)
-				local FrontDecal = child:FindFirstChild("FrontDecal")
+			local FrontDecal = child:FindFirstChild("FrontDecal", true)
+			local tex = ""
 
-				if not FrontDecal or not (FrontDecal.Texture == "rbxassetid://1472425802" or FrontDecal.Texture == "rbxassetid://1472580249" or FrontDecal.Texture == "rbxassetid://1472532912" or FrontDecal.Texture == "rbxassetid://2032949183" or FrontDecal.Texture == "rbxassetid://1472491940" or FrontDecal.Texture == "rbxassetid://1489734171" or FrontDecal.Texture == "rbxassetid://1837410537") then
-					if not FrontDecal or FrontDecal.Texture ~= "http://www.roblox.com/asset/?id=5877939956" then
-						tracked.dupedtokens[child] = { decal = FrontDecal, time = os.clock() }
-					else
-						tracked.dupedsmiley[child] = os.clock()
-					end
-				else
-					tracked.dupedbear[child] = os.clock()
+			if FrontDecal then
+				local okTex, value = pcall(function()
+					return FrontDecal.Texture
+				end)
+				if okTex and type(value) == "string" then
+					tex = value
+				end
+			end
+
+			local texId = tonumber(tex:match("%d+"))
+			local lowerName = string.lower(tostring(child.Name or ""))
+
+			if texId == 5877939956 or string.find(lowerName, "smile", 1, true) then
+				tracked.dupedsmiley[child] = os.clock()
+			elseif texId and bearIds[texId] then
+				tracked.dupedbear[child] = os.clock()
+			else
+				tracked.dupedtokens[child] = { decal = FrontDecal, time = os.clock() }
+			end
+		end
+
+		local clear = function(child)
+			tracked.dupedbear[child] = nil
+			tracked.dupedsmiley[child] = nil
+			tracked.dupedtokens[child] = nil
+		end
+
+		local attachFolder = function(folder)
+			connections:Cancel("dupedtokens")
+			connections:Cancel("dupedtokens2")
+			connections:Add("dupedtokens", folder.ChildAdded:Connect(classify))
+			connections:Add("dupedtokens2", folder.ChildRemoved:Connect(clear))
+
+			for _, child in ipairs(folder:GetChildren()) do
+				classify(child)
+			end
+		end
+
+		local findExisting = function()
+			if connections:Get("dupedtokens") then
+				return
+			end
+
+			for _, root in ipairs({ workspace.Camera, workspace }) do
+				local folder = root and root:FindFirstChild("DupedTokens")
+
+				if folder then
+					attachFolder(folder)
+					break
+				end
+			end
+		end
+
+		if not connections:Get("dupedtokensroot") then
+			connections:Add("dupedtokensroot", workspace.Camera.ChildAdded:Connect(function(child)
+				if child.Name == "DupedTokens" then
+					attachFolder(child)
 				end
 			end))
+		end
 
-			connections:Add("dupedtokens2", DupedTokens.ChildRemoved:Connect(function(child)
-				tracked.dupedbear[child] = nil
-				tracked.dupedsmiley[child] = nil
-				tracked.dupedtokens[child] = nil
+		if not connections:Get("dupedtokensroot2") then
+			connections:Add("dupedtokensroot2", workspace.ChildAdded:Connect(function(child)
+				if child.Name == "DupedTokens" then
+					attachFolder(child)
+				end
 			end))
 		end
+
+		findExisting()
 	end
 
 	watchStations = function(enable)
