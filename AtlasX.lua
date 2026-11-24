@@ -53674,6 +53674,12 @@ Content-Disposition: form-data; name="file[0]"; filename="image.png"
 			if _G.ATLASX_THORN_LOCK then
 				_G.ATLASX_THORN_LOCK = nil
 			end
+			if _G.ATLASX_VICIOUS_LOCK and os.clock() - (_G.ATLASX_VICIOUS_LOCK.at or 0) < 8 then
+				return true
+			end
+			if _G.ATLASX_VICIOUS_LOCK then
+				_G.ATLASX_VICIOUS_LOCK = nil
+			end
 
 			-- [petals] normal petals are collected early, but only when there is no
 			-- higher-priority target (precise mark/stamp, fire refresh, scorching star).
@@ -60565,10 +60571,13 @@ do
 								tracked.avoid[WaitingThorn] = 8
 							end
 
+							_G.ATLASX_VICIOUS_LOCK = { at = os.clock() }
+
 							while k.Parent do
 								if not RunService.Heartbeat:Wait() then
 									break
 								end
+								_G.ATLASX_VICIOUS_LOCK = { at = os.clock() }
 								goToField()
 
 								if not (not WaitingThorn or not WaitingThorn.Parent) then
@@ -60598,6 +60607,7 @@ do
 								end
 							end
 
+							_G.ATLASX_VICIOUS_LOCK = nil
 							local stats = discord.stats
 							stats["Total Vicious Kills"] = stats["Total Vicious Kills"] + 1
 
@@ -66422,6 +66432,12 @@ do
 			end
 			if _G.ATLASX_THORN_LOCK then
 				_G.ATLASX_THORN_LOCK = nil
+			end
+			if _G.ATLASX_VICIOUS_LOCK and os.clock() - (_G.ATLASX_VICIOUS_LOCK.at or 0) < 8 then
+				continue
+			end
+			if _G.ATLASX_VICIOUS_LOCK then
+				_G.ATLASX_VICIOUS_LOCK = nil
 			end
 
 			if not state.stop and not state.fasttween then
