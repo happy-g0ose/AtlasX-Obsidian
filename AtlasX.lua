@@ -492,6 +492,10 @@ if identifyexecutor then
 	print(identifyexecutor())
 end
 
+-- [fix] registry for live config apply (Load Config without script reload)
+_G.__atlasControlRegistry = {}
+local controlRegistry = _G.__atlasControlRegistry
+
 local cfg = {
 	custom = {
 		background = ATLASX_BG_URL,
@@ -1763,6 +1767,10 @@ mergeTable = function(target, source)
 			-- REPLACE that scalar default, otherwise the selection is silently
 			-- dropped on every reload and the checkboxes come back empty.
 			target[k] = cloneValue(sVal)
+		elseif sType == "string" and tType == "boolean" then
+			-- [fix] dropdowns are defaulted to false in cfg but store a string
+			-- (bestwhitefield, farmposition, ...). Keep the saved selection.
+			target[k] = sVal
 		elseif sType == tType then
 			target[k] = sVal
 		else
@@ -1774,6 +1782,10 @@ mergeTable = function(target, source)
 end
 
 local function saveConfig(cacheOnly)
+	-- avoid a storm of writes while a whole config is being applied
+	if _G.__atlasApplyingConfig then
+		return
+	end
 	-- [fix] never fail on a missing state / state.config after a reload or late call
 	if not state then
 		state = {}
@@ -3990,6 +4002,8 @@ do
 				end
 
 				table.insert(fieldClones, { text, clone })
+				switchApi.__config = { source = configSource, key = configKey, kind = "switch" }
+				controlRegistry[#controlRegistry + 1] = switchApi
 				return switchApi
 			end
 
@@ -4495,6 +4509,8 @@ do
 
 				dropdowns[dropdownApi] = true
 				table.insert(fieldClones, { dropdownTitle, clone })
+				dropdownApi.__config = { source = configSource, key = configKey, kind = "dropdown" }
+				controlRegistry[#controlRegistry + 1] = dropdownApi
 				return dropdownApi
 			end
 
@@ -4575,6 +4591,8 @@ do
 					end
 				end
 
+				sliderApi.__config = { source = configSource, key = configKey, kind = "slider" }
+				controlRegistry[#controlRegistry + 1] = sliderApi
 				return sliderApi
 			end
 
@@ -70073,40 +70091,37 @@ more accurate dodging]],
 				Settings.AddButton("Load Config", function()
 					if not isfile("atlas/" .. config2 .. ".json") then
 						ui.Notify("Config", "Config not found")
-					else
-						writefile("atlas-" .. localPlayer.Name .. ".json", config2 .. ".json")
-						task.spawn(function()
-							local scriptPath = _G.__atlasFile
-							if not scriptPath or not isfile(scriptPath) then
-								scriptPath = "atlas_custom.lua"
-							end
-							if not isfile(scriptPath) then
-								ui.Notify("Config", "Failed to load: local script file not found")
-								return
-							end
-							local okRead, src = pcall(readfile, scriptPath)
-							if not okRead or type(src) ~= "string" then
-								ui.Notify("Config", "Failed to read local script")
-								return
-							end
-							local chunk, err = loadstring(src, "@" .. scriptPath)
-							if not chunk then
-								ui.Notify("Config", "Failed to compile: " .. tostring(err))
-								return
-							end
-							if _G.atlas then
-								pcall(function()
-									_G.atlas:Destroy()
-								end)
-							end
-							task.wait(0.5)
-							_G.loading = nil
-							local okRun, runErr = pcall(chunk)
-							if not okRun then
-								warn("Load Config reload failed:", runErr)
-							end
-						end)
+						return
 					end
+					writefile("atlas-" .. localPlayer.Name .. ".json", config2 .. ".json")
+					local okRead, data = pcall(readfile, "atlas/" .. config2 .. ".json")
+					if not okRead or type(data) ~= "string" then
+						ui.Notify("Config", "Failed to read config")
+						return
+					end
+					local okDec, decoded = pcall(function()
+						return HttpService:JSONDecode(data)
+					end)
+					if not okDec or type(decoded) ~= "table" then
+						ui.Notify("Config", "Failed to decode config")
+						return
+					end
+					state.config = config2
+					mergeTable(cfg, decoded)
+					_G.__atlasApplyingConfig = true
+					for _, api in pairs(controlRegistry) do
+						local meta = api and api.__config
+						if meta and meta.key then
+							local srcTable = type(meta.source) == "string" and cfg[meta.source] or meta.source
+							local value = srcTable and srcTable[meta.key]
+							if value ~= nil and type(api.Set) == "function" then
+								pcall(api.Set, value)
+							end
+						end
+					end
+					_G.__atlasApplyingConfig = nil
+					pcall(saveConfig)
+					ui.Notify("Config", "Loaded " .. config2 .. " (live)")
 				end, 86)
 
 				Settings.AddHorizontalAlignment(10)
